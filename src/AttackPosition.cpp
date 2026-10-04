@@ -72,60 +72,36 @@ namespace
         return playerRoot->world.Invert() * hand->world.translate;
     }
 
-    std::optional<float> GetPlayerChestHeight()
-    {
-        auto* player = RE::PlayerCharacter::GetSingleton();
-        if (!player || !player->Is3DLoaded())
-        {
-            return std::nullopt;
-        }
+    // chest height system
+    //  std::optional<float> GetPlayerChestHeight()
+    //  {
+    //      auto* player = RE::PlayerCharacter::GetSingleton();
+    //      if (!player || !player->Is3DLoaded())
+    //      {
+    //          return std::nullopt;
+    //      }
 
-        auto* playerRoot = player->Get3D(false);
-        if (!playerRoot)
-        {
-            return std::nullopt;
-        }
+    //     auto* playerRoot = player->Get3D(false);
+    //     if (!playerRoot)
+    //     {
+    //         return std::nullopt;
+    //     }
 
-        auto* chest = FindFirstNode(playerRoot, {"NPC Spine2 [Spn2]", "NPC Spine1 [Spn1]", "NPC Spine [Spn0]"});
+    //     auto* chest = FindFirstNode(playerRoot, {"NPC Spine2 [Spn2]", "NPC Spine1 [Spn1]", "NPC Spine [Spn0]"});
 
-        if (!chest)
-        {
-            return std::nullopt;
-        }
+    //     if (!chest)
+    //     {
+    //         return std::nullopt;
+    //     }
 
-        const auto chestLocalPosition = playerRoot->world.Invert() * chest->world.translate;
+    //     const auto chestLocalPosition = playerRoot->world.Invert() * chest->world.translate;
 
-        return chestLocalPosition.z;
-    }
+    //     return chestLocalPosition.z;
+    // }
 
     int ClassifyHandPositionRelativeToPlayer(const RE::NiPoint3& a_handPosition)
     {
-        constexpr float kHorizontalThreshold = 20.0f;
-        constexpr float kChestVerticalThreshold = 10.0f;
-
-        const auto chestHeight = GetPlayerChestHeight();
-
-        if (!chestHeight)
-        {
-            if (a_handPosition.x > kHorizontalThreshold)
-            {
-                return 3;
-            }
-
-            if (a_handPosition.x < -kHorizontalThreshold)
-            {
-                return 7;
-            }
-
-            return 1;
-        }
-
-        const float relativeZ = a_handPosition.z - *chestHeight;
-
-        if (relativeZ > kChestVerticalThreshold)
-        {
-            return 1;
-        }
+        const float kHorizontalThreshold = Settings::NPCUI.topThreshold;
 
         if (a_handPosition.x > kHorizontalThreshold)
         {
@@ -139,6 +115,49 @@ namespace
 
         return 1;
     }
+
+    // chest height system
+    //  int ClassifyHandPositionRelativeToPlayer(const RE::NiPoint3& a_handPosition)
+    //  {
+    //      constexpr float kHorizontalThreshold = 20.0f;
+    //      constexpr float kChestVerticalThreshold = 10.0f;
+
+    //     const auto chestHeight = GetPlayerChestHeight();
+
+    //     if (!chestHeight)
+    //     {
+    //         if (a_handPosition.x > kHorizontalThreshold)
+    //         {
+    //             return 3;
+    //         }
+
+    //         if (a_handPosition.x < -kHorizontalThreshold)
+    //         {
+    //             return 7;
+    //         }
+
+    //         return 1;
+    //     }
+
+    //     const float relativeZ = a_handPosition.z - *chestHeight;
+
+    //     if (relativeZ > kChestVerticalThreshold)
+    //     {
+    //         return 1;
+    //     }
+
+    //     if (a_handPosition.x > kHorizontalThreshold)
+    //     {
+    //         return 3;
+    //     }
+
+    //     if (a_handPosition.x < -kHorizontalThreshold)
+    //     {
+    //         return 7;
+    //     }
+
+    //     return 1;
+    // }
 
     bool DispatchAttackTelegraph(RE::Actor* a_actor, const char* a_phase, int a_direction)
     {
@@ -331,9 +350,10 @@ void AttackPosition::RegisterSink(RE::Actor* a_actor)
 
     if (g_trackedNPCs.find(formID) == g_trackedNPCs.end())
     {
-        a_actor->AddAnimationGraphEventSink(NpcCycleSink::GetSingleton());
-
-        g_trackedNPCs.insert(formID);
+        if (a_actor->AddAnimationGraphEventSink(NpcCycleSink::GetSingleton()))
+        {
+            g_trackedNPCs.insert(formID);
+        }
     }
 }
 

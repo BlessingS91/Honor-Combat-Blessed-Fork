@@ -19,6 +19,7 @@ namespace Settings
         bool requireTDMTargetLock = false;
         bool showCenter = true;
         bool moveCenterWithDirection = false;
+
         bool centerInThirdPerson = false;
         bool scaleWithResolution = true;
 
@@ -54,6 +55,8 @@ namespace Settings
         bool scaleWithResolution = true;
         bool scaleWithDistance = false;
         bool mirrorAttackDirections = false;
+
+        float topThreshold = 30.0f;
 
         int scalePercent = 52;
         int opacityPercent = 100;

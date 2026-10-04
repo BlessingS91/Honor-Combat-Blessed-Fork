@@ -20,7 +20,6 @@ namespace
             case SKSE::MessagingInterface::kDataLoaded:
                 Prisma::Preload();
                 HonorCombatEventHandler::GetSingleton()->RegisterMenuListener();
-                RE::ScriptEventSourceHolder::GetSingleton()->AddEventSink(PC3DLoadEventHandler::GetSingleton());
                 AttackPosition::GetSingleton()->Initialize();
                 break;
             case SKSE::MessagingInterface::kPreLoadGame:

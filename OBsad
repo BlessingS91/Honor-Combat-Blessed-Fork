@@ -1,0 +1,8 @@
+ include/Configuration.h |   3 [32m++[m
+ include/InputTracker.h  |   0
+ src/AttackPosition.cpp  | 118 [32m+++++++++++++++++++++++++[m[31m------------------[m
+ src/Configuration.cpp   |  14 [32m++++++[m
+ src/Events.cpp          |  16 [32m+++[m[31m---[m
+ src/InputTracker.cpp    | 131 [31m------------------------------------------------[m
+ src/plugin.cpp          |   1 [31m-[m
+ 7 files changed, 92 insertions(+), 191 deletions(-)

@@ -11,6 +11,7 @@
 #include <unordered_set>
 #include <vector>
 
+#include "AttackPosition.h"
 #include "Configuration.h"
 #include "DelayedDispatcher.h"
 #include "Prisma.h"
@@ -406,8 +407,6 @@ RE::BSEventNotifyControl HonorCombatEventHandler::ProcessEvent(const SKSE::ModCa
         const int rawDirection = std::clamp(static_cast<int>(std::lround(event->numArg)), 0, 8);
         if (phase == "Resolved" && Settings::NPCUI.enabled && HasPlayerAsCombatTarget(attacker, player))
         {
-            RegisterNPCAnimationSink(attacker);
-
             IncomingAttack warning;
             warning.attacker = attacker->GetHandle();
             warning.rawDirection = rawDirection;
@@ -535,13 +534,10 @@ RE::BSEventNotifyControl HonorCombatEventHandler::ProcessEvent(const RE::MenuOpe
 
 void HonorCombatEventHandler::RegisterNPCAnimationSink(RE::Actor* actor)
 {
-    if (!actor || actor->IsPlayerRef()) return;
+    if (!actor || actor->IsPlayerRef())
+    {
+        return;
+    }
 
-    RE::BSTSmartPointer<RE::BSAnimationGraphManager> graphManager;
-    actor->GetAnimationGraphManager(graphManager);
-
-    if (!graphManager) return;
-
-    actor->RemoveAnimationGraphEventSink(this);
-    actor->AddAnimationGraphEventSink(this);
+    AttackPosition::GetSingleton()->RegisterNPCAnimationSink(actor);
 }

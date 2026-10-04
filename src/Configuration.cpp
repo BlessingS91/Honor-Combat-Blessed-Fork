@@ -87,6 +87,8 @@ namespace
         ui.segmentGapPixels = std::clamp(ui.segmentGapPixels, 0, 30);
         ui.topAngleDegrees = std::clamp(ui.topAngleDegrees, 30, 150);
 
+        ui.topThreshold = std::clamp(ui.topThreshold, 0.0f, 50.0f);
+
         ClampColor(ui.activeColor);
         ClampColor(ui.inactiveColor);
         ClampColor(ui.borderColor);
@@ -362,6 +364,14 @@ namespace ModMenu
                 }
             };
 
+            const auto readFloat = [&](const char* key, float& value)
+            {
+                if (npcDocument.HasMember(key) && npcDocument[key].IsNumber())
+                {
+                    value = npcDocument[key].GetFloat();
+                }
+            };
+
             if (legacyNpcLoaded)
             {
                 readBool("showNpcAttackWarnings", npc.enabled);
@@ -391,6 +401,8 @@ namespace ModMenu
                 readBool("scaleWithDistance", npc.scaleWithDistance);
                 readBool("mirrorAttackDirections", npc.mirrorAttackDirections);
                 readBool("scaleWithResolution", npc.scaleWithResolution);
+
+                readFloat("topThreshold", npc.topThreshold);
 
                 readInt("scalePercent", npc.scalePercent);
                 readInt("opacityPercent", npc.opacityPercent);
@@ -567,6 +579,8 @@ namespace ModMenu
 
         npcDocument.AddMember("npcOnlyCombat", NPCOnlyCombat, npcAllocator);
 
+        npcDocument.AddMember("topThreshold", npc.topThreshold, npcAllocator);
+
         WriteColor(npcDocument, "activeColor", npc.activeColor, npcAllocator);
 
         WriteColor(npcDocument, "inactiveColor", npc.inactiveColor, npcAllocator);
@@ -725,6 +739,8 @@ namespace ModMenu
             changed |= ImGui::Checkbox(GetLoc("menu.npc_resolution_scale", "Scale NPC indicators with screen resolution"), &npc.scaleWithResolution);
 
             changed |= ImGui::Checkbox(GetLoc("menu.npc_warnings_mirror", "Mirror NPC attack directions"), &npc.mirrorAttackDirections);
+
+            changed |= ImGui::SliderFloat(GetLoc("menu.npc_top_threshold", "NPC top attack threshold"), &npc.topThreshold, 0.0f, 50.0f, "%.0f");
 
             ImGui::TextWrapped("%s", GetLoc("menu.npc_warnings_mirror_help", "Mirroring swaps left and right for a front-facing view. Leave it disabled when the direction already matches what you see in game."));
 
