@@ -4,6 +4,7 @@
 #include "Configuration.h"
 #include "Events.h"
 #include "Hooks.h"
+#include "InputTracking.h"
 #include "Prisma.h"
 
 namespace
@@ -29,6 +30,7 @@ namespace
             case SKSE::MessagingInterface::kNewGame:
             case SKSE::MessagingInterface::kPostLoadGame:
                 HonorCombatEventHandler::GetSingleton()->Reset();
+                DirectionTracker::GetSingleton()->Initialize();
                 break;
             default:
                 break;
@@ -41,7 +43,9 @@ SKSEPluginLoad(const SKSE::LoadInterface* skse)
     SKSE::Init(skse);
     SetupLog();
     SKSE::GetMessagingInterface()->RegisterListener(OnMessage);
+
     HonorCombatEventHandler::GetSingleton()->RegisterDMKListener();
+
     Hooks::Install();
     logger::info("Honor Combat loaded.");
     return true;
