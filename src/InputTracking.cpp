@@ -5,13 +5,13 @@
 #include <cmath>
 
 #include "DelayedDispatcher.h"
+#include "InputSettings.h"
 
 namespace
 {
     constexpr float kMouseClamp = 300.0f;
     constexpr float kStickThreshold = 0.5f;
     constexpr float kStickActivityThreshold = 0.1f;
-    constexpr auto kCameraResetDelay = std::chrono::milliseconds(500);
 
     constexpr std::string_view kCameraGraphVariable = "CameraMovementCMF";
     constexpr std::string_view kUpdateEvent = "DMKUpdate";
@@ -77,11 +77,10 @@ RE::BSEventNotifyControl DirectionTracker::ProcessEvent(RE::InputEvent* const* a
         {
             auto* mouseEvent = static_cast<RE::MouseMoveEvent*>(event);
 
-            constexpr float mouseSensitivity = 1.0f;
-            constexpr float deadzone = 0.0f;
+            const float deadzone = InputSettings::CameraDeadzone;
 
-            mouseCamX += mouseEvent->mouseInputX * mouseSensitivity;
-            mouseCamY -= mouseEvent->mouseInputY * mouseSensitivity;
+            mouseCamX += mouseEvent->mouseInputX * InputSettings::CameraSensitivity;
+            mouseCamY -= mouseEvent->mouseInputY * InputSettings::CameraSensitivity;
 
             mouseCamX = std::clamp(mouseCamX, -kMouseClamp, kMouseClamp);
             mouseCamY = std::clamp(mouseCamY, -kMouseClamp, kMouseClamp);
@@ -235,12 +234,19 @@ void DirectionTracker::DispatchUpdate(int a_value)
 
 void DirectionTracker::NotifyCameraActivity()
 {
-    cameraResetDeadline = std::chrono::steady_clock::now() + kCameraResetDelay;
+    if (!InputSettings::EnableCameraAutoReset)
+    {
+        return;
+    }
+
+    const auto resetDelay = std::chrono::milliseconds(static_cast<int64_t>(InputSettings::CameraResetDelaySeconds * 1000.0f));
+
+    cameraResetDeadline = std::chrono::steady_clock::now() + resetDelay;
 
     if (!resetScheduled)
     {
         resetScheduled = true;
-        ScheduleCameraResetCheck(kCameraResetDelay, cameraResetGeneration);
+        ScheduleCameraResetCheck(resetDelay, cameraResetGeneration);
     }
 }
 

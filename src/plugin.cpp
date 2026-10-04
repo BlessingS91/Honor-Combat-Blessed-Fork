@@ -1,10 +1,10 @@
 ﻿#include "Plugin.h"
 
 #include "AttackPosition.h"
-#include "Configuration.h"
 #include "Events.h"
 #include "Hooks.h"
 #include "InputTracking.h"
+#include "Menu.h"
 #include "Prisma.h"
 
 namespace

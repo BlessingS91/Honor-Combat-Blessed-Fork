@@ -1,13 +1,11 @@
 #pragma once
 
 #include <array>
+#include <cstddef>
 #include <string>
-
-#include "SKSEMCP/SKSEMenuFramework.hpp"
 
 namespace Settings
 {
-
     inline constexpr std::size_t kSegmentCount = 3;
 
     struct PlayerUISettings
@@ -82,21 +80,11 @@ namespace Settings
 
 namespace ModMenu
 {
-
     inline bool NPCOnlyCombat = true;
 
-    void Register();
-
-    void PlayerUIRender();
-
-    void NPCUIRender();
-
     void LoadSettings();
-
     void SaveSettings();
 
     void LoadLanguage();
-
     const char* GetLoc(const std::string& key, const char* defaultValue);
-
 }
