@@ -16,6 +16,9 @@ public:
     void Initialize();
     void Shutdown();
 
+    void ApplyAndDispatchState(int a_cameraState);
+    void SyncExternalGraphState(RE::PlayerCharacter* a_player);
+
     RE::BSEventNotifyControl ProcessEvent(RE::InputEvent* const* a_event, RE::BSTEventSource<RE::InputEvent*>* a_eventSource) override;
 
 private:
@@ -60,5 +63,7 @@ private:
     std::chrono::steady_clock::time_point cameraResetDeadline{};
 
     std::uint64_t cameraResetGeneration{0};
+
+    int lastWrittenCameraState{-1};
     int lastDispatchedCameraState{-1};
 };

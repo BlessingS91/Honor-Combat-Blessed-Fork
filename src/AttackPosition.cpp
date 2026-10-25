@@ -179,7 +179,7 @@ namespace
 
         eventSource->SendEvent(&event);
 
-        SKSE::log::debug("[DMKAttackTelegraph] Sent actor={:08X} phase={} direction={}", a_actor->GetFormID(), a_phase, a_direction);
+        SKSE::log::info("[DMKAttackTelegraph] Sent actor={:08X} phase={} direction={}", a_actor->GetFormID(), a_phase, a_direction);
 
         return true;
     }
@@ -211,7 +211,9 @@ void AttackPosition::ResetAttackDirection(RE::Actor* a_actor)
         return;
     }
 
-    a_actor->SetGraphVariableInt(kAttackDirectionVariable, 0);
+    const bool graphUpdated = a_actor->SetGraphVariableInt(kAttackDirectionVariable, 0);
+
+    SKSE::log::info("[NPC Attack Direction] Reset actor={:08X} graphUpdated={}", a_actor->GetFormID(), graphUpdated);
 
     DispatchAttackTelegraph(a_actor, "End", 0);
 }
@@ -227,7 +229,7 @@ void AttackPosition::ResolveAttackDirection(RE::Actor* a_actor, bool a_leftHand)
 
     if (!handPosition)
     {
-        SKSE::log::debug("[NPC Attack Direction] Resolve failed actor={:08X}: {} hand not found.", a_actor->GetFormID(), a_leftHand ? "left" : "right");
+        SKSE::log::info("[NPC Attack Direction] Resolve failed actor={:08X}: {} hand not found.", a_actor->GetFormID(), a_leftHand ? "left" : "right");
 
         return;
     }
@@ -238,8 +240,8 @@ void AttackPosition::ResolveAttackDirection(RE::Actor* a_actor, bool a_leftHand)
 
     DispatchAttackTelegraph(a_actor, "Resolved", direction);
 
-    SKSE::log::debug("[NPC Attack Direction] NPC {:08X}: hand={} localX={:.2f} localY={:.2f} localZ={:.2f} direction={} graphUpdated={}.", a_actor->GetFormID(), a_leftHand ? "L" : "R", handPosition->x, handPosition->y, handPosition->z,
-                     direction, graphUpdated);
+    SKSE::log::info("[NPC Attack Direction] NPC {:08X}: hand={} localX={:.2f} localY={:.2f} localZ={:.2f} direction={} graphUpdated={}.", a_actor->GetFormID(), a_leftHand ? "L" : "R", handPosition->x, handPosition->y, handPosition->z,
+                    direction, graphUpdated);
 }
 
 RE::BSEventNotifyControl AttackPosition::NpcCycleSink::ProcessEvent(const RE::BSAnimationGraphEvent* a_event, RE::BSTEventSource<RE::BSAnimationGraphEvent>*)
@@ -261,6 +263,8 @@ RE::BSEventNotifyControl AttackPosition::NpcCycleSink::ProcessEvent(const RE::BS
         const std::string rawEventName = a_event->tag.c_str();
         const std::string eventName = ToLower(rawEventName);
 
+        SKSE::log::info("[NPC Attack Direction] Event actor={:08X} tag={}", actor->GetFormID(), rawEventName);
+
         if (eventName.find("weaponleftswing") != std::string::npos)
         {
             AttackPosition::GetSingleton()->ResolveAttackDirection(actor, true);
@@ -272,7 +276,7 @@ RE::BSEventNotifyControl AttackPosition::NpcCycleSink::ProcessEvent(const RE::BS
         else if (eventName == "mco_winopen" || eventName == "mco_powerwinopen" || eventName == "scar_combostart" || eventName == "staggerstart" || eventName == "blockstart" || eventName == "attackwinstart" || eventName == "attackstop" ||
                  eventName == "sbf_staggerstart" || eventName == "sbf_staggerstop")
         {
-            SKSE::log::debug("[NPC Attack Direction] Reset actor={:08X} tag={}", actor->GetFormID(), rawEventName);
+            SKSE::log::info("[NPC Attack Direction] Reset actor={:08X} tag={}", actor->GetFormID(), rawEventName);
 
             AttackPosition::GetSingleton()->ResetAttackDirection(actor);
         }
@@ -350,10 +354,14 @@ void AttackPosition::RegisterSink(RE::Actor* a_actor)
 
     if (g_trackedNPCs.find(formID) == g_trackedNPCs.end())
     {
-        if (a_actor->AddAnimationGraphEventSink(NpcCycleSink::GetSingleton()))
+        const bool registered = a_actor->AddAnimationGraphEventSink(NpcCycleSink::GetSingleton());
+
+        if (registered)
         {
             g_trackedNPCs.insert(formID);
         }
+
+        SKSE::log::info("[NPC Attack Direction] Register actor={:08X} success={} tracked={}", formID, registered, g_trackedNPCs.contains(formID));
     }
 }
 
@@ -496,6 +504,8 @@ AttackPosition::PC3DLoadEventHandler* AttackPosition::PC3DLoadEventHandler::GetS
 
 void AttackPosition::Initialize()
 {
+    SKSE::log::info("[NPC Attack Direction] Initialize entered");
+
     auto* eventSourceHolder = RE::ScriptEventSourceHolder::GetSingleton();
     if (!eventSourceHolder)
     {

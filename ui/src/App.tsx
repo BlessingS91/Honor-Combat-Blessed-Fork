@@ -746,34 +746,41 @@ function App() {
                       index * 120 + config().rotationDegrees
                     } 500 500)`}
                   >
-                    <path
-                      class="direction-segment"
-                      d={geometry().path}
-                      fill={colorToCss(
-                        active()
-                          ? config().activeColor
-                          : config().inactiveColor,
-                      )}
-                      stroke={colorToCss(config().borderColor)}
-                      stroke-width="5"
-                      vector-effect="non-scaling-stroke"
-                    />
-
-                    <Show when={segmentAssets()[index]}>
-                      <image
-                        class="direction-image"
-                        classList={{
-                          active: active(),
-                        }}
-                        href={segmentAssets()[index]}
-                        x={geometry().imageX}
-                        y={geometry().imageY}
-                        width={geometry().imageWidth}
-                        height={geometry().imageHeight}
-                        preserveAspectRatio="xMidYMid slice"
-                        clip-path="url(#honor-segment-clip)"
+                    <g
+                      classList={{
+                        "direction-shield": true,
+                        active: active(),
+                      }}
+                    >
+                      <path
+                        class="direction-segment"
+                        d={geometry().path}
+                        fill={colorToCss(
+                          active()
+                            ? config().activeColor
+                            : config().inactiveColor,
+                        )}
+                        stroke={colorToCss(config().borderColor)}
+                        stroke-width="5"
+                        vector-effect="non-scaling-stroke"
                       />
-                    </Show>
+
+                      <Show when={segmentAssets()[index]}>
+                        <image
+                          class="direction-image"
+                          classList={{
+                            active: active(),
+                          }}
+                          href={segmentAssets()[index]}
+                          x={geometry().imageX}
+                          y={geometry().imageY}
+                          width={geometry().imageWidth}
+                          height={geometry().imageHeight}
+                          preserveAspectRatio="xMidYMid slice"
+                          clip-path="url(#honor-segment-clip)"
+                        />
+                      </Show>
+                    </g>
                   </g>
                 );
               }}
@@ -833,15 +840,12 @@ function App() {
                   left: `calc(${warning().xPercent}% + ${
                     config().npc.offsetXPixels * warning().resolutionScale
                   }px)`,
-
                   top: `calc(${warning().yPercent}% - ${
                     config().npc.offsetYPixels * warning().resolutionScale
                   }px)`,
-
                   width: `${config().npc.diameterPixels}px`,
                   height: `${config().npc.diameterPixels}px`,
                   opacity: `${config().npc.opacityPercent / 100}`,
-
                   transform: `translate(-50%, -50%) scale(${warningScale()})`,
                 }}
               >
@@ -869,9 +873,7 @@ function App() {
                         >
                           <path
                             class="direction-segment attack-warning-segment"
-                            classList={{
-                              active: active(),
-                            }}
+                            classList={{ active: active() }}
                             d={npcGeometry().path}
                             fill={colorToCss(
                               active()
@@ -885,10 +887,6 @@ function App() {
 
                           <Show when={npcSegmentAssets()[index]}>
                             <image
-                              class="direction-image attack-warning-image"
-                              classList={{
-                                active: active(),
-                              }}
                               href={npcSegmentAssets()[index]}
                               x={npcGeometry().imageX}
                               y={npcGeometry().imageY}

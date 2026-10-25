@@ -38,6 +38,9 @@ void DirectionTracker::Initialize()
         inputDispatcher->AddEventSink(this);
     }
 
+    // Establish the initial graph state immediately.
+    UpdateDirection();
+
     logger::info("DirectionTracker initialized");
 }
 
@@ -173,6 +176,8 @@ bool DirectionTracker::IsRightStickInput(const RE::ThumbstickEvent* a_event) con
 
 void DirectionTracker::UpdateDirection()
 {
+    logger::info("[TEST] UpdateDirection ENTERED");
+
     const bool CAM_FRENTE = rs_up || m_up;
     const bool CAM_TRAS = rs_down || m_down;
     const bool CAM_ESQUERDA = rs_left || m_left;
@@ -197,16 +202,37 @@ void DirectionTracker::UpdateDirection()
     else if (CAM_DIREITA)
         cameraMovementCMF = 3;
 
+    logger::info("[TEST] Calculated camera state={}", cameraMovementCMF);
+
+    ApplyAndDispatchState(cameraMovementCMF);
+
+    logger::info("[TEST] UpdateDirection EXITED");
+}
+
+void DirectionTracker::ApplyAndDispatchState(int a_cameraState)
+{
     auto* player = RE::PlayerCharacter::GetSingleton();
 
     if (!player)
     {
+        logger::error("[Camera] PlayerCharacter unavailable");
         return;
     }
 
-    player->SetGraphVariableInt(kCameraGraphVariable, cameraMovementCMF);
+    const RE::BSFixedString variable("CameraMovementCMF");
 
-    DispatchUpdate(cameraMovementCMF);
+    std::int32_t before = -1;
+    const bool readBefore = player->GetGraphVariableInt(variable, before);
+
+    const bool written = player->SetGraphVariableInt(variable, a_cameraState);
+
+    std::int32_t after = -1;
+    const bool readAfter = player->GetGraphVariableInt(variable, after);
+
+    logger::info("[Camera] actor={:08X} state={} before={} beforeValue={} written={} after={} afterValue={}", player->GetFormID(), a_cameraState, readBefore, before, written, readAfter, after);
+
+    lastWrittenCameraState = a_cameraState;
+    DispatchUpdate(a_cameraState);
 }
 
 void DirectionTracker::DispatchUpdate(int a_value)
@@ -231,6 +257,41 @@ void DirectionTracker::DispatchUpdate(int a_value)
     lastDispatchedCameraState = a_value;
 
     logger::debug("[DMKUpdate] Sent type=Camera value={}", a_value);
+}
+
+void DirectionTracker::SyncExternalGraphState(RE::PlayerCharacter* a_player)
+{
+    if (!a_player || lastWrittenCameraState < 0)
+    {
+        return;
+    }
+
+    std::int32_t graphCameraState = 0;
+
+    if (a_player->GetGraphVariableInt(kCameraGraphVariable, graphCameraState) && graphCameraState != lastWrittenCameraState)
+    {
+        lastWrittenCameraState = graphCameraState;
+
+        DispatchUpdate(graphCameraState);
+
+        if (graphCameraState == 0)
+        {
+            CancelCameraResetTimer();
+
+            mouseCamX = 0.0f;
+            mouseCamY = 0.0f;
+
+            m_up = false;
+            m_down = false;
+            m_left = false;
+            m_right = false;
+
+            rs_up = false;
+            rs_down = false;
+            rs_left = false;
+            rs_right = false;
+        }
+    }
 }
 
 void DirectionTracker::NotifyCameraActivity()
@@ -270,7 +331,6 @@ void DirectionTracker::HandleCameraResetCheck(std::uint64_t a_generation)
         const auto remaining = std::max(std::chrono::duration_cast<std::chrono::milliseconds>(cameraResetDeadline - now), std::chrono::milliseconds(1));
 
         ScheduleCameraResetCheck(remaining, a_generation);
-
         return;
     }
 
