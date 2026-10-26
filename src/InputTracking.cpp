@@ -4,6 +4,7 @@
 #include <chrono>
 #include <cmath>
 
+#include "Configuration.h"
 #include "DelayedDispatcher.h"
 
 namespace
@@ -11,9 +12,8 @@ namespace
     constexpr float kMouseClamp = 300.0f;
     constexpr float kStickThreshold = 0.5f;
     constexpr float kStickActivityThreshold = 0.1f;
-    constexpr auto kCameraResetDelay = std::chrono::milliseconds(500);
 
-    constexpr std::string_view kCameraGraphVariable = "CameraMovementCMF";
+    constexpr std::string_view kCameraGraphVariable = "CameraMovementFHB";
     constexpr std::string_view kUpdateEvent = "DMKUpdate";
     constexpr std::string_view kCameraEventType = "Camera";
 }
@@ -38,8 +38,8 @@ void DirectionTracker::Initialize()
         inputDispatcher->AddEventSink(this);
     }
 
-    // Establish the initial graph state immediately.
-    UpdateDirection();
+    // Establish the initial neutral graph state immediately.
+    ApplyAndDispatchState(0);
 
     logger::info("DirectionTracker initialized");
 }
@@ -52,6 +52,9 @@ void DirectionTracker::Shutdown()
     }
 
     CancelCameraResetTimer();
+
+    ++directionSwitchGeneration;
+    pendingCameraState = -1;
 
     auto* inputDispatcher = RE::BSInputDeviceManager::GetSingleton();
 
@@ -176,37 +179,86 @@ bool DirectionTracker::IsRightStickInput(const RE::ThumbstickEvent* a_event) con
 
 void DirectionTracker::UpdateDirection()
 {
-    logger::info("[TEST] UpdateDirection ENTERED");
+    const bool CAM_UP = rs_up || m_up;
+    const bool CAM_LEFT = rs_left || m_left;
+    const bool CAM_RIGHT = rs_right || m_right;
 
-    const bool CAM_FRENTE = rs_up || m_up;
-    const bool CAM_TRAS = rs_down || m_down;
-    const bool CAM_ESQUERDA = rs_left || m_left;
-    const bool CAM_DIREITA = rs_right || m_right;
+    int CameraMovementFHB = 0;
 
-    int cameraMovementCMF = 0;
+    if (CAM_UP)
+        CameraMovementFHB = 1;
+    else if (CAM_RIGHT)
+        CameraMovementFHB = 2;
+    else if (CAM_LEFT)
+        CameraMovementFHB = 3;
 
-    if (CAM_FRENTE && CAM_ESQUERDA)
-        cameraMovementCMF = 8;
-    else if (CAM_FRENTE && CAM_DIREITA)
-        cameraMovementCMF = 2;
-    else if (CAM_TRAS && CAM_ESQUERDA)
-        cameraMovementCMF = 6;
-    else if (CAM_TRAS && CAM_DIREITA)
-        cameraMovementCMF = 4;
-    else if (CAM_FRENTE)
-        cameraMovementCMF = 1;
-    else if (CAM_ESQUERDA)
-        cameraMovementCMF = 7;
-    else if (CAM_TRAS)
-        cameraMovementCMF = 5;
-    else if (CAM_DIREITA)
-        cameraMovementCMF = 3;
+    RequestDirectionState(CameraMovementFHB);
+}
 
-    logger::info("[TEST] Calculated camera state={}", cameraMovementCMF);
+void DirectionTracker::RequestDirectionState(int a_cameraState)
+{
+    if (a_cameraState == lastWrittenCameraState && pendingCameraState == -1)
+    {
+        return;
+    }
 
-    ApplyAndDispatchState(cameraMovementCMF);
+    if (a_cameraState == 0)
+    {
+        ++directionSwitchGeneration;
+        pendingCameraState = -1;
+        ApplyAndDispatchState(0);
+        return;
+    }
 
-    logger::info("[TEST] UpdateDirection EXITED");
+    const auto delay = std::chrono::milliseconds(std::max(0, Settings::InputTracking.directionSwitchDelayMs));
+
+    if (delay.count() == 0)
+    {
+        ++directionSwitchGeneration;
+        pendingCameraState = -1;
+        ApplyAndDispatchState(a_cameraState);
+        return;
+    }
+
+    if (a_cameraState == pendingCameraState)
+    {
+        return;
+    }
+
+    if (a_cameraState == lastWrittenCameraState)
+    {
+        ++directionSwitchGeneration;
+        pendingCameraState = -1;
+        return;
+    }
+
+    pendingCameraState = a_cameraState;
+    const auto generation = ++directionSwitchGeneration;
+    ScheduleDirectionSwitchCheck(delay, generation);
+}
+
+void DirectionTracker::ScheduleDirectionSwitchCheck(std::chrono::milliseconds a_delay, std::uint64_t a_generation)
+{
+    Utils::DelayedDispatcher::Get().PostDelayed(a_delay,
+                                                [a_generation]()
+                                                {
+                                                    if (auto* taskInterface = SKSE::GetTaskInterface())
+                                                    {
+                                                        taskInterface->AddTask([a_generation]() { DirectionTracker::GetSingleton()->HandleDirectionSwitchCheck(a_generation); });
+                                                    }
+                                                });
+}
+
+void DirectionTracker::HandleDirectionSwitchCheck(std::uint64_t a_generation)
+{
+    if (a_generation != directionSwitchGeneration || pendingCameraState == -1)
+    {
+        return;
+    }
+
+    const int state = pendingCameraState;
+    pendingCameraState = -1;
+    ApplyAndDispatchState(state);
 }
 
 void DirectionTracker::ApplyAndDispatchState(int a_cameraState)
@@ -219,7 +271,7 @@ void DirectionTracker::ApplyAndDispatchState(int a_cameraState)
         return;
     }
 
-    const RE::BSFixedString variable("CameraMovementCMF");
+    const RE::BSFixedString variable("CameraMovementFHB");
 
     std::int32_t before = -1;
     const bool readBefore = player->GetGraphVariableInt(variable, before);
@@ -278,6 +330,9 @@ void DirectionTracker::SyncExternalGraphState(RE::PlayerCharacter* a_player)
         {
             CancelCameraResetTimer();
 
+            ++directionSwitchGeneration;
+            pendingCameraState = -1;
+
             mouseCamX = 0.0f;
             mouseCamY = 0.0f;
 
@@ -296,12 +351,14 @@ void DirectionTracker::SyncExternalGraphState(RE::PlayerCharacter* a_player)
 
 void DirectionTracker::NotifyCameraActivity()
 {
-    cameraResetDeadline = std::chrono::steady_clock::now() + kCameraResetDelay;
+    const auto delay = std::chrono::milliseconds(std::max(0, Settings::InputTracking.neutralDecayMs));
+
+    cameraResetDeadline = std::chrono::steady_clock::now() + delay;
 
     if (!resetScheduled)
     {
         resetScheduled = true;
-        ScheduleCameraResetCheck(kCameraResetDelay, cameraResetGeneration);
+        ScheduleCameraResetCheck(delay, cameraResetGeneration);
     }
 }
 
@@ -338,7 +395,11 @@ void DirectionTracker::HandleCameraResetCheck(std::uint64_t a_generation)
     ++cameraResetGeneration;
 
     ResetCameraInput();
-    UpdateDirection();
+
+    ++directionSwitchGeneration;
+    pendingCameraState = -1;
+
+    ApplyAndDispatchState(0);
 }
 
 void DirectionTracker::CancelCameraResetTimer()

@@ -10,6 +10,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <unordered_map>
 #include <unordered_set>
 
 #include "Configuration.h"
@@ -17,8 +18,11 @@
 
 namespace
 {
-    constexpr char kAttackDirectionVariable[] = "AttackDirectionNPC";
+    constexpr char kAttackDirectionVariable[] = "AttackDirectionFHB";
     constexpr char kAttackTelegraphEvent[] = "DMKAttackTelegraph";
+
+    std::mutex g_attackDirectionsMutex;
+    std::unordered_map<RE::FormID, int> g_attackDirections;
 
     std::mutex g_trackedNPCsMutex;
     std::unordered_set<RE::FormID> g_trackedNPCs;
@@ -101,19 +105,19 @@ namespace
 
     int ClassifyHandPositionRelativeToPlayer(const RE::NiPoint3& a_handPosition)
     {
-        const float kHorizontalThreshold = Settings::NPCUI.topThreshold;
+        const float horizontalThreshold = Settings::NPCUI.topThreshold;
 
-        if (a_handPosition.x > kHorizontalThreshold)
+        if (a_handPosition.x > horizontalThreshold)
         {
-            return 3;
+            return 3;  // Left
         }
 
-        if (a_handPosition.x < -kHorizontalThreshold)
+        if (a_handPosition.x < -horizontalThreshold)
         {
-            return 7;
+            return 2;  // Right
         }
 
-        return 1;
+        return 1;  // Top
     }
 
     // chest height system
@@ -213,6 +217,11 @@ void AttackPosition::ResetAttackDirection(RE::Actor* a_actor)
 
     const bool graphUpdated = a_actor->SetGraphVariableInt(kAttackDirectionVariable, 0);
 
+    {
+        std::scoped_lock lock(g_attackDirectionsMutex);
+        g_attackDirections.erase(a_actor->GetFormID());
+    }
+
     SKSE::log::info("[NPC Attack Direction] Reset actor={:08X} graphUpdated={}", a_actor->GetFormID(), graphUpdated);
 
     DispatchAttackTelegraph(a_actor, "End", 0);
@@ -235,6 +244,11 @@ void AttackPosition::ResolveAttackDirection(RE::Actor* a_actor, bool a_leftHand)
     }
 
     const int direction = ClassifyHandPositionRelativeToPlayer(*handPosition);
+
+    {
+        std::scoped_lock lock(g_attackDirectionsMutex);
+        g_attackDirections[a_actor->GetFormID()] = direction;
+    }
 
     const bool graphUpdated = a_actor->SetGraphVariableInt(kAttackDirectionVariable, direction);
 
@@ -272,6 +286,25 @@ RE::BSEventNotifyControl AttackPosition::NpcCycleSink::ProcessEvent(const RE::BS
         else if (eventName.find("weaponswing") != std::string::npos)
         {
             AttackPosition::GetSingleton()->ResolveAttackDirection(actor, false);
+        }
+        else if (eventName == "hitframe" || eventName == "FakeHit")
+        {
+            int direction = 0;
+
+            {
+                std::scoped_lock lock(g_attackDirectionsMutex);
+                const auto it = g_attackDirections.find(actor->GetFormID());
+
+                if (it != g_attackDirections.end())
+                {
+                    direction = it->second;
+                }
+            }
+
+            if (direction != 0)
+            {
+                DispatchAttackTelegraph(actor, "HitFrame", direction);
+            }
         }
         else if (eventName == "mco_winopen" || eventName == "mco_powerwinopen" || eventName == "scar_combostart" || eventName == "staggerstart" || eventName == "blockstart" || eventName == "attackwinstart" || eventName == "attackstop" ||
                  eventName == "sbf_staggerstart" || eventName == "sbf_staggerstop")

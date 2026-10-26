@@ -11,6 +11,7 @@ struct AttackWarningVisual
     float yPercent{50.0f};
     float resolutionScale{1.0f};
     float distanceScale{1.0f};
+    bool hitFrameFlash{false};
 };
 
 class Prisma

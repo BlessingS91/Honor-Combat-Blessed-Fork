@@ -297,6 +297,9 @@ namespace
             writer.Key("distanceScale");
             writer.Double(warning.distanceScale);
 
+            writer.Key("hitFrameFlash");
+            writer.Bool(warning.hitFrameFlash);
+
             writer.EndObject();
         }
 
@@ -499,7 +502,7 @@ void Prisma::UpdateAttackWarnings(const std::vector<AttackWarningVisual>& warnin
                                                                                  {
                                                                                      return left.id == right.id && left.direction == right.direction && nearlyEqual(left.xPercent, right.xPercent, 0.025f) &&
                                                                                             nearlyEqual(left.yPercent, right.yPercent, 0.025f) && nearlyEqual(left.resolutionScale, right.resolutionScale, 0.005f) &&
-                                                                                            nearlyEqual(left.distanceScale, right.distanceScale, 0.005f);
+                                                                                            nearlyEqual(left.distanceScale, right.distanceScale, 0.005f) && left.hitFrameFlash == right.hitFrameFlash;
                                                                                  });
 
     if (!changed)

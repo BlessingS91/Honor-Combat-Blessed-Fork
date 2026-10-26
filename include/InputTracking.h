@@ -31,6 +31,14 @@ private:
     DirectionTracker& operator=(DirectionTracker&&) = delete;
 
     void UpdateDirection();
+
+    void RequestDirectionState(int a_cameraState);
+    void ScheduleDirectionSwitchCheck(std::chrono::milliseconds a_delay, std::uint64_t a_generation);
+    void HandleDirectionSwitchCheck(std::uint64_t a_generation);
+
+    int pendingCameraState{-1};
+    std::uint64_t directionSwitchGeneration{0};
+
     void ResetCameraInput();
 
     void NotifyCameraActivity();

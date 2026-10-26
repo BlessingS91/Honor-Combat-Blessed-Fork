@@ -18,6 +18,7 @@ namespace
     constexpr const char* kLegacyUISettingsPath = "Data/Viny Mods/Honor Combat/UISettings.json";
     constexpr const char* kPlayerUISettingsPath = "Data/Viny Mods/Honor Combat/PlayerUISettings.json";
     constexpr const char* kNPCUISettingsPath = "Data/Viny Mods/Honor Combat/NPCUISettings.json";
+    constexpr const char* kInputTrackingSettingsPath = "Data/Viny Mods/Honor Combat/InputTrackingSettings.json";
     constexpr const char* kLanguagePath = "Data/Viny Mods/Honor Combat/Language.json";
     constexpr std::size_t kMaxAssetPathLength = 260;
 
@@ -440,6 +441,27 @@ namespace ModMenu
 
         ClampSettings(npc);
 
+        rapidjson::Document inputDocument;
+
+        if (ReadDocument(kInputTrackingSettingsPath, inputDocument))
+        {
+            auto& input = Settings::InputTracking;
+
+            if (inputDocument.HasMember("directionSwitchDelayMs") && inputDocument["directionSwitchDelayMs"].IsInt())
+            {
+                input.directionSwitchDelayMs = inputDocument["directionSwitchDelayMs"].GetInt();
+            }
+
+            if (inputDocument.HasMember("neutralDecayMs") && inputDocument["neutralDecayMs"].IsInt())
+            {
+                input.neutralDecayMs = inputDocument["neutralDecayMs"].GetInt();
+            }
+        }
+
+        Settings::InputTracking.directionSwitchDelayMs = std::clamp(Settings::InputTracking.directionSwitchDelayMs, 0, 1000);
+
+        Settings::InputTracking.neutralDecayMs = std::clamp(Settings::InputTracking.neutralDecayMs, 0, 5000);
+
         if (legacyLoaded || legacyNpcLoaded)
         {
             SaveSettings();
@@ -609,6 +631,26 @@ namespace ModMenu
         if (npcFile.is_open())
         {
             npcFile << npcBuffer.GetString();
+        }
+
+        rapidjson::Document inputDocument;
+        inputDocument.SetObject();
+
+        auto& inputAllocator = inputDocument.GetAllocator();
+        const auto& input = Settings::InputTracking;
+
+        inputDocument.AddMember("directionSwitchDelayMs", input.directionSwitchDelayMs, inputAllocator);
+        inputDocument.AddMember("neutralDecayMs", input.neutralDecayMs, inputAllocator);
+
+        rapidjson::StringBuffer inputBuffer;
+        rapidjson::PrettyWriter<rapidjson::StringBuffer> inputWriter(inputBuffer);
+        inputDocument.Accept(inputWriter);
+
+        std::ofstream inputFile(kInputTrackingSettingsPath, std::ios::binary);
+
+        if (inputFile.is_open())
+        {
+            inputFile << inputBuffer.GetString();
         }
     }
 
@@ -801,6 +843,38 @@ namespace ModMenu
         }
     }
 
+    void InputTrackingRender()
+    {
+        auto& input = Settings::InputTracking;
+        bool changed = false;
+
+        if (ImGui::CollapsingHeader("Camera Direction Tracking", ImGuiTreeNodeFlags_DefaultOpen))
+        {
+            ImGui::Indent();
+
+            changed |= RenderIntSliderWithInput("Direction switch delay (ms)", &input.directionSwitchDelayMs, 0, 1000);
+
+            ImGui::TextWrapped(
+                "Delay before switching between non-neutral camera directions. "
+                "Set to 0 for instant switching.");
+
+            changed |= RenderIntSliderWithInput("Neutral reset delay (ms)", &input.neutralDecayMs, 0, 5000);
+
+            ImGui::TextWrapped("Time without camera activity before the direction resets to neutral.");
+
+            ImGui::Unindent();
+        }
+
+        input.directionSwitchDelayMs = std::clamp(input.directionSwitchDelayMs, 0, 1000);
+
+        input.neutralDecayMs = std::clamp(input.neutralDecayMs, 0, 5000);
+
+        if (changed)
+        {
+            SaveSettings();
+        }
+    }
+
     void Register()
     {
         LoadLanguage();
@@ -817,6 +891,7 @@ namespace ModMenu
         SKSEMenuFramework::AddSectionItem(GetLoc("menu.player_ui_settings", "Player UI"), PlayerUIRender);
 
         SKSEMenuFramework::AddSectionItem(GetLoc("menu.npc_ui_settings", "NPC UI"), NPCUIRender);
-    }
 
+        SKSEMenuFramework::AddSectionItem("Input Tracking", InputTrackingRender);
+    }
 }

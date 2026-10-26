@@ -10,6 +10,13 @@ namespace Settings
 
     inline constexpr std::size_t kSegmentCount = 3;
 
+    struct InputTrackingSettings
+    {
+        int directionSwitchDelayMs = 100;
+        int neutralDecayMs = 500;
+    };
+
+    inline InputTrackingSettings InputTracking;
     struct PlayerUISettings
     {
         bool enabled = true;
@@ -90,6 +97,8 @@ namespace ModMenu
     void PlayerUIRender();
 
     void NPCUIRender();
+
+    void InputTrackingRender();
 
     void LoadSettings();
 

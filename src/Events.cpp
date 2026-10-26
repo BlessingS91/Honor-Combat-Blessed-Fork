@@ -32,6 +32,7 @@ namespace
         RE::ActorHandle attacker;
         int rawDirection{0};
         std::chrono::steady_clock::time_point expiresAt{};
+        std::chrono::steady_clock::time_point hitFrameUntil{};
     };
 
     std::unordered_map<RE::FormID, IncomingAttack> incomingAttacks;
@@ -39,43 +40,16 @@ namespace
 
     int ConvertAttackDirectionForHud(int direction, bool mirror)
     {
-        direction = std::clamp(direction, 0, 8);
+        direction = std::clamp(direction, 0, 3);
 
-        int hudDirection;
-        switch (direction)
-        {
-            case 0:
-                hudDirection = 0;  // Neutral / no active direction
-                break;
-
-            case 8:
-            case 1:
-            case 2:
-            case 5:
-                hudDirection = 1;  // Top
-                break;
-
-            case 3:
-            case 4:
-                hudDirection = 3;  // Right
-                break;
-
-            case 6:
-            case 7:
-                hudDirection = 7;  // Left
-                break;
-
-            default:
-                hudDirection = 0;
-                break;
-        }
+        int hudDirection = direction;
 
         if (mirror)
         {
-            if (hudDirection == 3)
-                hudDirection = 7;
-            else if (hudDirection == 7)
+            if (hudDirection == 2)
                 hudDirection = 3;
+            else if (hudDirection == 3)
+                hudDirection = 2;
         }
 
         return hudDirection;
@@ -182,7 +156,7 @@ namespace
         if (!player || !interactionEligible || !Settings::NPCUI.enabled) return visuals;
 
         const auto now = std::chrono::steady_clock::now();
-        const auto addVisual = [&](RE::Actor* attacker, int rawDirection)
+        const auto addVisual = [&](RE::Actor* attacker, int rawDirection, bool hitFrameFlash)
         {
             auto* torso = GetTorsoNode(attacker);
             float xPercent = 50.0f;
@@ -198,7 +172,7 @@ namespace
                         distanceScale = std::clamp(300.0f / std::max(distance, 300.0f), 0.35f, 1.0f);
                     }
                 }
-                visuals.push_back({attacker->GetFormID(), ConvertAttackDirectionForHud(rawDirection, Settings::NPCUI.mirrorAttackDirections), xPercent, yPercent, resolutionScale, distanceScale});
+                visuals.push_back({attacker->GetFormID(), ConvertAttackDirectionForHud(rawDirection, Settings::NPCUI.mirrorAttackDirections), xPercent, yPercent, resolutionScale, distanceScale, hitFrameFlash});
             }
         };
 
@@ -222,7 +196,10 @@ namespace
 
                     const auto it = incomingAttacks.find(attacker->GetFormID());
                     const int rawDirection = it != incomingAttacks.end() && now < it->second.expiresAt ? it->second.rawDirection : 0;
-                    addVisual(attacker, rawDirection);
+
+                    const bool hitFrameFlash = it != incomingAttacks.end() && now < it->second.hitFrameUntil;
+
+                    addVisual(attacker, rawDirection, hitFrameFlash);
                 }
             }
         }
@@ -238,7 +215,7 @@ namespace
                     it = incomingAttacks.erase(it);
                     continue;
                 }
-                addVisual(attacker, it->second.rawDirection);
+                addVisual(attacker, it->second.rawDirection, now < it->second.hitFrameUntil);
                 ++it;
             }
         }
@@ -383,6 +360,16 @@ RE::BSEventNotifyControl HonorCombatEventHandler::ProcessEvent(const SKSE::ModCa
         return RE::BSEventNotifyControl::kContinue;
     }
 
+    if (event->eventName == "HonorCombatResetAttackDirection")
+    {
+        auto* attacker = event->sender ? event->sender->As<RE::Actor>() : nullptr;
+        if (attacker)
+        {
+            AttackPosition::GetSingleton()->ResetAttackDirection(attacker);
+        }
+        return RE::BSEventNotifyControl::kContinue;
+    }
+
     const std::string_view eventName = event->eventName.c_str();
     if (eventName == "DMKAttackTelegraph")
     {
@@ -404,17 +391,36 @@ RE::BSEventNotifyControl HonorCombatEventHandler::ProcessEvent(const SKSE::ModCa
         }
 
         auto* player = RE::PlayerCharacter::GetSingleton();
-        const int rawDirection = std::clamp(static_cast<int>(std::lround(event->numArg)), 0, 8);
+        const int rawDirection = static_cast<int>(event->numArg);
+
+        if (phase == "HitFrame")
+        {
+            {
+                std::scoped_lock lock(incomingAttacksMutex);
+                const auto it = incomingAttacks.find(attacker->GetFormID());
+
+                if (it != incomingAttacks.end())
+                {
+                    it->second.hitFrameUntil = std::chrono::steady_clock::now() + std::chrono::milliseconds(250);
+                }
+            }
+
+            UpdateFrame();
+            return RE::BSEventNotifyControl::kContinue;
+        }
+
         if (phase == "Resolved" && Settings::NPCUI.enabled && HasPlayerAsCombatTarget(attacker, player))
         {
             IncomingAttack warning;
             warning.attacker = attacker->GetHandle();
             warning.rawDirection = rawDirection;
             warning.expiresAt = std::chrono::steady_clock::now() + attackWarningLifetime;
+
             {
                 std::scoped_lock lock(incomingAttacksMutex);
-                incomingAttacks.insert_or_assign(attacker->GetFormID(), warning);
+                incomingAttacks[attacker->GetFormID()] = warning;
             }
+
             UpdateFrame();
         }
         return RE::BSEventNotifyControl::kContinue;
@@ -431,7 +437,7 @@ RE::BSEventNotifyControl HonorCombatEventHandler::ProcessEvent(const SKSE::ModCa
         return RE::BSEventNotifyControl::kContinue;
     }
 
-    const int direction = std::clamp(static_cast<int>(std::lround(event->numArg)), 0, 8);
+    const int direction = std::clamp(static_cast<int>(std::lround(event->numArg)), 0, 3);
     if (Settings::PlayerUI.useDirectionalDMK)
     {
         if (auto* player = RE::PlayerCharacter::GetSingleton())
@@ -483,7 +489,7 @@ RE::BSEventNotifyControl HonorCombatEventHandler::ProcessEvent(const RE::BSAnima
             auto* player = RE::PlayerCharacter::GetSingleton();
             if (player)
             {
-                player->SetGraphVariableInt(Settings::PlayerUI.useDirectionalDMK ? "DirecionalCycleMoveset" : "CameraMovementCMF", 0);
+                player->SetGraphVariableInt(Settings::PlayerUI.useDirectionalDMK ? "DirecionalCycleMoveset" : "CameraMovementFHB", 0);
             }
 
             direction_ = 0;

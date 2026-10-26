@@ -11,6 +11,7 @@ type AttackWarning = {
   yPercent: number;
   resolutionScale: number;
   distanceScale: number;
+  hitFrameFlash: boolean;
 };
 
 type NpcUiConfig = {
@@ -335,7 +336,7 @@ const parseAttackWarnings = (payload: string): AttackWarning[] => {
       const id = Math.trunc(Number(candidate.id));
       const direction = Math.trunc(Number(candidate.direction));
 
-      if (!Number.isFinite(id) || id < 0 || direction < 0 || direction > 8) {
+      if (!Number.isFinite(id) || id < 0 || direction < 0 || direction > 3) {
         return [];
       }
 
@@ -347,6 +348,7 @@ const parseAttackWarnings = (payload: string): AttackWarning[] => {
           yPercent: clamp(Number(candidate.yPercent), 0, 100),
           resolutionScale: clamp(Number(candidate.resolutionScale), 0.5, 4),
           distanceScale: clamp(Number(candidate.distanceScale ?? 1), 0.35, 1),
+          hitFrameFlash: candidate.hitFrameFlash === true,
         },
       ];
     });
@@ -431,53 +433,30 @@ const loadFirstAsset = (
     tryNext();
   });
 
-/*
-Raw → Visual attack direction
-8, 1, 2, 5 → Top
-3, 4        → Left
-6, 7        → Right
-0            → None
- */
-const playerVisualDirection = (rawDirection: number) => {
-  if (
-    rawDirection === 8 ||
-    rawDirection === 1 ||
-    rawDirection === 2 ||
-    rawDirection === 5
-  ) {
-    return 0; // top
+const playerVisualDirection = (direction: number) => {
+  switch (direction) {
+    case 1:
+      return 0; // Top
+    case 2:
+      return 1; // Right
+    case 3:
+      return 2; // Left
+    default:
+      return -1; // Neutral
   }
-
-  if (rawDirection === 3 || rawDirection === 4) {
-    return 1; // left
-  }
-
-  if (rawDirection === 6 || rawDirection === 7) {
-    return 2; // right
-  }
-
-  return -1;
 };
 
 const npcVisualDirection = (rawDirection: number) => {
-  if (
-    rawDirection === 8 ||
-    rawDirection === 1 ||
-    rawDirection === 2 ||
-    rawDirection === 5
-  ) {
-    return 0; // top
+  switch (rawDirection) {
+    case 1:
+      return 0; // Top
+    case 2:
+      return 2; // Right
+    case 3:
+      return 1; // Left
+    default:
+      return -1; // Neutral
   }
-
-  if (rawDirection === 3 || rawDirection === 4) {
-    return 1; // left
-  }
-
-  if (rawDirection === 6 || rawDirection === 7) {
-    return 2; // right
-  }
-
-  return -1;
 };
 
 function App() {
@@ -514,7 +493,7 @@ function App() {
   };
 
   directionReceiver = (payload) =>
-    setDirection(clamp(parseInt(payload, 10) || 0, 0, 8));
+    setDirection(clamp(parseInt(payload, 10) || 0, 0, 3));
 
   runtimeReceiver = (payload) => {
     const parts = payload.split("|");
@@ -682,7 +661,12 @@ function App() {
       return { x: 0, y: 0 };
     }
 
-    const angle = ((selectedDirection() - 1) * Math.PI) / 4 - Math.PI / 2;
+    const angle =
+      selectedDirection() === 1
+        ? -Math.PI / 2
+        : selectedDirection() === 2
+          ? 0
+          : Math.PI;
 
     const distance = config().centerMovementPixels;
 
@@ -835,6 +819,9 @@ function App() {
             return (
               <div
                 class="honor-hud attack-warning"
+                classList={{
+                  "hit-frame-flash": warning().hitFrameFlash,
+                }}
                 data-threat-id={warning().id}
                 style={{
                   left: `calc(${warning().xPercent}% + ${
