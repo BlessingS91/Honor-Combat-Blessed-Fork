@@ -12,6 +12,7 @@ struct AttackWarningVisual
     float resolutionScale{1.0f};
     float distanceScale{1.0f};
     bool hitFrameFlash{false};
+    bool unblockable{false};
 };
 
 class Prisma
@@ -26,6 +27,8 @@ public:
     static void ApplyUISettings();
 
     static void UpdateDirection(int direction);
+    static void UpdateAllBlock(bool allBlock);
+    static void UpdateUnblockable(bool unblockable);
 
     static void UpdateRuntimeState(bool eligible, bool previewEligible, float xPercent, float yPercent, float resolutionScale, bool attached);
 

@@ -62,6 +62,7 @@ namespace
         ui.centerMovementDurationMs = std::clamp(ui.centerMovementDurationMs, 0, 1000);
 
         ClampColor(ui.activeColor);
+        ClampColor(ui.unblockableColor);
         ClampColor(ui.inactiveColor);
         ClampColor(ui.borderColor);
         ClampColor(ui.centerColor);
@@ -91,6 +92,7 @@ namespace
         ui.topThreshold = std::clamp(ui.topThreshold, 0.0f, 50.0f);
 
         ClampColor(ui.activeColor);
+        ClampColor(ui.unblockableColor);
         ClampColor(ui.inactiveColor);
         ClampColor(ui.borderColor);
 
@@ -279,6 +281,7 @@ namespace ModMenu
             readBool("blockReset", ui.blockReset);
             readBool("useDirectionalDMK", ui.useDirectionalDMK);
             readBool("requireTDMTargetLock", ui.requireTDMTargetLock);
+            readBool("showOnlyWhileBlocking", ui.showOnlyWhileBlocking);
             readBool("showCenter", ui.showCenter);
             readBool("moveCenterWithDirection", ui.moveCenterWithDirection);
             readBool("centerInThirdPerson", ui.centerInThirdPerson);
@@ -301,6 +304,7 @@ namespace ModMenu
             readInt("centerMovementDurationMs", ui.centerMovementDurationMs);
 
             ReadColor(document, "activeColor", ui.activeColor);
+            ReadColor(document, "unblockableColor", ui.unblockableColor);
             ReadColor(document, "inactiveColor", ui.inactiveColor);
             ReadColor(document, "borderColor", ui.borderColor);
             ReadColor(document, "centerColor", ui.centerColor);
@@ -419,6 +423,8 @@ namespace ModMenu
 
             ReadColor(npcDocument, "activeColor", npc.activeColor);
 
+            ReadColor(npcDocument, "unblockableColor", npc.unblockableColor);
+
             ReadColor(npcDocument, "inactiveColor", npc.inactiveColor);
 
             ReadColor(npcDocument, "borderColor", npc.borderColor);
@@ -494,6 +500,8 @@ namespace ModMenu
 
         document.AddMember("requireTDMTargetLock", ui.requireTDMTargetLock, allocator);
 
+        document.AddMember("showOnlyWhileBlocking", ui.showOnlyWhileBlocking, allocator);
+
         document.AddMember("showCenter", ui.showCenter, allocator);
 
         document.AddMember("moveCenterWithDirection", ui.moveCenterWithDirection, allocator);
@@ -531,6 +539,8 @@ namespace ModMenu
         document.AddMember("centerMovementDurationMs", ui.centerMovementDurationMs, allocator);
 
         WriteColor(document, "activeColor", ui.activeColor, allocator);
+
+        WriteColor(document, "unblockableColor", ui.unblockableColor, allocator);
 
         WriteColor(document, "inactiveColor", ui.inactiveColor, allocator);
 
@@ -605,6 +615,8 @@ namespace ModMenu
 
         WriteColor(npcDocument, "activeColor", npc.activeColor, npcAllocator);
 
+        WriteColor(npcDocument, "unblockableColor", npc.unblockableColor, npcAllocator);
+
         WriteColor(npcDocument, "inactiveColor", npc.inactiveColor, npcAllocator);
 
         WriteColor(npcDocument, "borderColor", npc.borderColor, npcAllocator);
@@ -674,6 +686,8 @@ namespace ModMenu
 
             changed |= ImGui::Checkbox(GetLoc("menu.require_tdm_target_lock", "Show HUD only while a TDM target is locked"), &ui.requireTDMTargetLock);
 
+            changed |= ImGui::Checkbox(GetLoc("menu.show_only_while_blocking", "Show HUD only while blocking"), &ui.showOnlyWhileBlocking);
+
             changed |= ImGui::Checkbox(GetLoc("menu.show_center", "Show center piece"), &ui.showCenter);
 
             changed |= ImGui::Checkbox(GetLoc("menu.move_center", "Move center piece with direction"), &ui.moveCenterWithDirection);
@@ -737,6 +751,8 @@ namespace ModMenu
             constexpr ImGuiColorEditFlags colorFlags = ImGuiColorEditFlags_AlphaBar | ImGuiColorEditFlags_AlphaPreviewHalf;
 
             changed |= ImGui::ColorEdit4(GetLoc("menu.active_color", "Active direction"), ui.activeColor.data(), colorFlags);
+
+            changed |= ImGui::ColorEdit4(GetLoc("menu.unblockable_color", "Unblockable attack"), ui.unblockableColor.data(), colorFlags);
 
             changed |= ImGui::ColorEdit4(GetLoc("menu.inactive_color", "Inactive directions"), ui.inactiveColor.data(), colorFlags);
 
@@ -816,6 +832,8 @@ namespace ModMenu
             constexpr ImGuiColorEditFlags colorFlags = ImGuiColorEditFlags_AlphaBar | ImGuiColorEditFlags_AlphaPreviewHalf;
 
             changed |= ImGui::ColorEdit4(GetLoc("menu.active_color", "Active direction"), npc.activeColor.data(), colorFlags);
+
+            changed |= ImGui::ColorEdit4(GetLoc("menu.unblockable_color", "Unblockable attack"), npc.unblockableColor.data(), colorFlags);
 
             changed |= ImGui::ColorEdit4(GetLoc("menu.inactive_color", "Inactive directions"), npc.inactiveColor.data(), colorFlags);
 

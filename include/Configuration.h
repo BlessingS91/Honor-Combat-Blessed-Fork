@@ -24,6 +24,7 @@ namespace Settings
         bool blockReset = false;
         bool useDirectionalDMK = false;
         bool requireTDMTargetLock = false;
+        bool showOnlyWhileBlocking{false};
         bool showCenter = true;
         bool moveCenterWithDirection = false;
 
@@ -46,6 +47,7 @@ namespace Settings
         int centerMovementDurationMs = 100;
 
         std::array<float, 4> activeColor{0.95f, 0.72f, 0.22f, 1.0f};
+        std::array<float, 4> unblockableColor{1.0f, 0.2f, 0.1f, 1.0f};
         std::array<float, 4> inactiveColor{0.08f, 0.09f, 0.10f, 0.72f};
         std::array<float, 4> borderColor{0.80f, 0.80f, 0.76f, 0.90f};
         std::array<float, 4> centerColor{0.04f, 0.04f, 0.05f, 0.86f};
@@ -76,6 +78,7 @@ namespace Settings
         int topAngleDegrees = 90;
 
         std::array<float, 4> activeColor{0.95f, 0.72f, 0.22f, 1.0f};
+        std::array<float, 4> unblockableColor{1.0f, 0.2f, 0.1f, 1.0f};
         std::array<float, 4> inactiveColor{0.08f, 0.09f, 0.10f, 0.72f};
         std::array<float, 4> borderColor{0.80f, 0.80f, 0.76f, 0.90f};
 

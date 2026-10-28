@@ -24,6 +24,8 @@ namespace
     // 7 = left, 3 = right.
     int currentDirection = 0;
     int currentRawDirection = 0;
+    bool currentAllBlock = false;
+    bool currentUnblockable = false;
 
     bool runtimeEligible = false;
     bool runtimePreviewEligible = false;
@@ -123,6 +125,9 @@ namespace
         writer.Key("activeColor");
         WriteColor(writer, ui.activeColor);
 
+        writer.Key("unblockableColor");
+        WriteColor(writer, ui.unblockableColor);
+
         writer.Key("inactiveColor");
         WriteColor(writer, ui.inactiveColor);
 
@@ -198,6 +203,9 @@ namespace
         writer.Key("activeColor");
         WriteColor(writer, npc.activeColor);
 
+        writer.Key("unblockableColor");
+        WriteColor(writer, npc.unblockableColor);
+
         writer.Key("inactiveColor");
         WriteColor(writer, npc.inactiveColor);
 
@@ -244,7 +252,7 @@ namespace
         }
 
         static std::string payload;
-        payload = std::to_string(currentDirection);
+        payload = std::to_string(currentDirection) + "|" + (currentAllBlock ? "1" : "0") + "|" + (currentUnblockable ? "1" : "0");
 
         prismaUI->InteropCall(view, "updateHonorCombatDirection", payload.c_str());
     }
@@ -299,6 +307,9 @@ namespace
 
             writer.Key("hitFrameFlash");
             writer.Bool(warning.hitFrameFlash);
+
+            writer.Key("unblockable");
+            writer.Bool(warning.unblockable);
 
             writer.EndObject();
         }
@@ -468,6 +479,28 @@ void Prisma::UpdateDirection(int direction)
     SyncVisibility();
 }
 
+void Prisma::UpdateAllBlock(bool allBlock)
+{
+    if (currentAllBlock == allBlock)
+    {
+        return;
+    }
+
+    currentAllBlock = allBlock;
+    SendDirection();
+}
+
+void Prisma::UpdateUnblockable(bool unblockable)
+{
+    if (currentUnblockable == unblockable)
+    {
+        return;
+    }
+
+    currentUnblockable = unblockable;
+    SendDirection();
+}
+
 void Prisma::UpdateRuntimeState(bool eligible, bool previewEligible, float xPercent, float yPercent, float resolutionScale, bool attached)
 {
     xPercent = std::clamp(xPercent, 0.0f, 100.0f);
@@ -502,7 +535,7 @@ void Prisma::UpdateAttackWarnings(const std::vector<AttackWarningVisual>& warnin
                                                                                  {
                                                                                      return left.id == right.id && left.direction == right.direction && nearlyEqual(left.xPercent, right.xPercent, 0.025f) &&
                                                                                             nearlyEqual(left.yPercent, right.yPercent, 0.025f) && nearlyEqual(left.resolutionScale, right.resolutionScale, 0.005f) &&
-                                                                                            nearlyEqual(left.distanceScale, right.distanceScale, 0.005f) && left.hitFrameFlash == right.hitFrameFlash;
+                                                                                            nearlyEqual(left.distanceScale, right.distanceScale, 0.005f) && left.hitFrameFlash == right.hitFrameFlash && left.unblockable == right.unblockable;
                                                                                  });
 
     if (!changed)
@@ -520,6 +553,8 @@ void Prisma::Reset()
 {
     currentRawDirection = 0;
     currentDirection = 0;
+    currentAllBlock = false;
+    currentUnblockable = false;
 
     runtimeEligible = false;
     runtimePreviewEligible = false;

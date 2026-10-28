@@ -12,6 +12,7 @@ type AttackWarning = {
   resolutionScale: number;
   distanceScale: number;
   hitFrameFlash: boolean;
+  unblockable: boolean;
 };
 
 type NpcUiConfig = {
@@ -25,6 +26,7 @@ type NpcUiConfig = {
   innerDiameterPercent: number;
   segmentGapPixels: number;
   activeColor: Color;
+  unblockableColor: Color;
   inactiveColor: Color;
   borderColor: Color;
   sharedSegmentImage: string;
@@ -52,6 +54,7 @@ type UiConfig = {
   centerMovementPixels: number;
   centerMovementDurationMs: number;
   activeColor: Color;
+  unblockableColor: Color;
   inactiveColor: Color;
   borderColor: Color;
   centerColor: Color;
@@ -72,6 +75,7 @@ const defaultNpcConfig = (): NpcUiConfig => ({
   innerDiameterPercent: 36,
   segmentGapPixels: 4,
   activeColor: [0.95, 0.72, 0.22, 1],
+  unblockableColor: [1.0, 0.2, 0.1, 1],
   inactiveColor: [0.08, 0.09, 0.1, 0.72],
   borderColor: [0.8, 0.8, 0.76, 0.9],
   sharedSegmentImage: "",
@@ -99,6 +103,7 @@ const defaultConfig = (): UiConfig => ({
   centerMovementPixels: 20,
   centerMovementDurationMs: 100,
   activeColor: [0.95, 0.72, 0.22, 1],
+  unblockableColor: [1.0, 0.2, 0.1, 1],
   inactiveColor: [0.08, 0.09, 0.1, 0.72],
   borderColor: [0.8, 0.8, 0.76, 0.9],
   centerColor: [0.04, 0.04, 0.05, 0.86],
@@ -240,6 +245,10 @@ const parseConfig = (payload: string): UiConfig | null => {
       ),
 
       activeColor: parseColor(value.activeColor, fallback.activeColor),
+      unblockableColor: parseColor(
+        value.unblockableColor,
+        fallback.unblockableColor,
+      ),
       inactiveColor: parseColor(value.inactiveColor, fallback.inactiveColor),
       borderColor: parseColor(value.borderColor, fallback.borderColor),
       centerColor: parseColor(value.centerColor, fallback.centerColor),
@@ -306,6 +315,10 @@ const parseConfig = (payload: string): UiConfig | null => {
         ),
 
         activeColor: parseColor(npc.activeColor, npcFallback.activeColor),
+        unblockableColor: parseColor(
+          npc.unblockableColor,
+          npcFallback.unblockableColor,
+        ),
         inactiveColor: parseColor(npc.inactiveColor, npcFallback.inactiveColor),
         borderColor: parseColor(npc.borderColor, npcFallback.borderColor),
 
@@ -349,6 +362,7 @@ const parseAttackWarnings = (payload: string): AttackWarning[] => {
           resolutionScale: clamp(Number(candidate.resolutionScale), 0.5, 4),
           distanceScale: clamp(Number(candidate.distanceScale ?? 1), 0.35, 1),
           hitFrameFlash: candidate.hitFrameFlash === true,
+          unblockable: candidate.unblockable === true,
         },
       ];
     });
@@ -462,6 +476,8 @@ const npcVisualDirection = (rawDirection: number) => {
 function App() {
   const [config, setConfig] = createSignal(defaultConfig());
   const [direction, setDirection] = createSignal(0);
+  const [allBlock, setAllBlock] = createSignal(false);
+  const [unblockable, setUnblockable] = createSignal(false);
 
   const [runtime, setRuntime] = createSignal({
     eligible: false,
@@ -492,8 +508,13 @@ function App() {
     if (parsed) setConfig(parsed);
   };
 
-  directionReceiver = (payload) =>
-    setDirection(clamp(parseInt(payload, 10) || 0, 0, 3));
+  directionReceiver = (payload) => {
+    const [rawDirection, rawAllBlock, rawUnblockable] = payload.split("|");
+
+    setDirection(clamp(parseInt(rawDirection, 10) || 0, 0, 3));
+    setAllBlock(rawAllBlock === "1");
+    setUnblockable(rawUnblockable === "1");
+  };
 
   runtimeReceiver = (payload) => {
     const parts = payload.split("|");
@@ -722,6 +743,8 @@ function App() {
             <For each={[0, 1, 2]}>
               {(index) => {
                 const active = () =>
+                  allBlock() ||
+                  unblockable() ||
                   playerVisualDirection(selectedDirection()) === index;
 
                 return (
@@ -740,9 +763,11 @@ function App() {
                         class="direction-segment"
                         d={geometry().path}
                         fill={colorToCss(
-                          active()
-                            ? config().activeColor
-                            : config().inactiveColor,
+                          unblockable()
+                            ? config().unblockableColor
+                            : active()
+                              ? config().activeColor
+                              : config().inactiveColor,
                         )}
                         stroke={colorToCss(config().borderColor)}
                         stroke-width="5"
@@ -850,6 +875,7 @@ function App() {
                   <For each={[0, 1, 2]}>
                     {(index) => {
                       const active = () =>
+                        warning().unblockable ||
                         npcVisualDirection(warning().direction) === index;
 
                       return (
@@ -863,9 +889,11 @@ function App() {
                             classList={{ active: active() }}
                             d={npcGeometry().path}
                             fill={colorToCss(
-                              active()
-                                ? config().npc.activeColor
-                                : config().npc.inactiveColor,
+                              warning().unblockable
+                                ? config().npc.unblockableColor
+                                : active()
+                                  ? config().npc.activeColor
+                                  : config().npc.inactiveColor,
                             )}
                             stroke={colorToCss(config().npc.borderColor)}
                             stroke-width="5"

@@ -4,6 +4,7 @@
 #include <array>
 #include <chrono>
 #include <cmath>
+#include <cstdint>
 #include <mutex>
 #include <string>
 #include <string_view>
@@ -172,7 +173,9 @@ namespace
                         distanceScale = std::clamp(300.0f / std::max(distance, 300.0f), 0.35f, 1.0f);
                     }
                 }
-                visuals.push_back({attacker->GetFormID(), ConvertAttackDirectionForHud(rawDirection, Settings::NPCUI.mirrorAttackDirections), xPercent, yPercent, resolutionScale, distanceScale, hitFrameFlash});
+                std::int32_t unblockable = 0;
+                attacker->GetGraphVariableInt("UnblockableFHB", unblockable);
+                visuals.push_back({attacker->GetFormID(), ConvertAttackDirectionForHud(rawDirection, Settings::NPCUI.mirrorAttackDirections), xPercent, yPercent, resolutionScale, distanceScale, hitFrameFlash, unblockable == 1});
             }
         };
 
@@ -285,7 +288,20 @@ void HonorCombatEventHandler::RegisterPlayerAnimationSink()
 void HonorCombatEventHandler::UpdateFrame()
 {
     if (!playerAnimationRegistered_) RegisterPlayerAnimationSink();
+
     auto* player = RE::PlayerCharacter::GetSingleton();
+    std::int32_t allBlock = 0;
+    std::int32_t unblockable = 0;
+
+    if (player)
+    {
+        player->GetGraphVariableInt("AllBlockFHB", allBlock);
+        player->GetGraphVariableInt("UnblockableFHB", unblockable);
+    }
+
+    Prisma::UpdateAllBlock(allBlock == 1);
+    Prisma::UpdateUnblockable(unblockable == 1);
+
     const float resolutionScale = GetResolutionScale(Settings::PlayerUI.scaleWithResolution);
     const bool structurallyEligible = IsPlayerStructurallyEligible(player);
     const bool previewBlocked = IsPreviewBlockingMenuOpen();
@@ -301,7 +317,14 @@ void HonorCombatEventHandler::UpdateFrame()
     const bool targetLockEligible = !Settings::PlayerUI.requireTDMTargetLock || HasLockedTDMTarget();
     const bool interactionEligible = IsRuntimeInteractionEligible();
     Prisma::UpdateAttackWarnings(BuildAttackWarnings(player, GetResolutionScale(Settings::NPCUI.scaleWithResolution), interactionEligible));
-    const bool runtimeEligible = Settings::PlayerUI.enabled && weaponDrawn && targetLockEligible && interactionEligible;
+    bool graphIsBashing = false;
+    player->GetGraphVariableBool("IsBashing", graphIsBashing);
+
+    const bool isBashing = graphIsBashing || (actorState && actorState->GetAttackState() == RE::ATTACK_STATE_ENUM::kBash);
+
+    const bool blockingEligible = !Settings::PlayerUI.showOnlyWhileBlocking || player->IsBlocking() || isBashing;
+    const bool runtimeEligible = Settings::PlayerUI.enabled && weaponDrawn && targetLockEligible && interactionEligible && blockingEligible;
+
     const auto* playerCamera = RE::PlayerCamera::GetSingleton();
     const bool firstPerson = !playerCamera || playerCamera->IsInFirstPerson();
     if (firstPerson || Settings::PlayerUI.centerInThirdPerson)
